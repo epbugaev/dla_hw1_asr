@@ -6,6 +6,9 @@ numpy==1.26.4
 torch_audiomentations
 tqdm
 matplotlib
+editdistance
+datasets
+wget
 pandas
 wandb
 comet_ml
