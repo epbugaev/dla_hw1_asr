@@ -43,6 +43,7 @@ class DeepSpeech2(nn.Module):
                     batch_first=True
                 )
             )
+            self.rnn_module.append(nn.BatchNorm1d(rnn_hidden_dim))
 
         self.fc_head = nn.Sequential(
             nn.LayerNorm(rnn_hidden_dim),
@@ -60,12 +61,13 @@ class DeepSpeech2(nn.Module):
             output (dict): output dict containing log_probs and
                 transformed lengths.
         """
-        output = self.conv_module(spectrogram.transpose(1, 2).unsqueeze(1)) # Now: batch, layer, time, n_feats
+        output = self.conv_module(spectrogram.transpose(1, 2).unsqueeze(1)) # Now: (batch, layer, time, n_feats)
         batch_size, layers_cnt, seq_length, feats_dim = output.size()
         output = output.permute(0, 2, 1, 3).reshape(batch_size, seq_length, -1)
         
         for i in range(self.num_rnn_layers):
-            output, _ = self.rnn_module[i](output)
+            output, _ = self.rnn_module[2 * i](output)
+            output = self.rnn_module[2 * i + 1](output.permute(0, 2, 1)).permute(0, 2, 1) # BatchNorm1d accepts order (batch, n_feats, seq_len)
 
         output = self.fc_head(output)
 
