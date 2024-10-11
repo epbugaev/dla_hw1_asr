@@ -15,7 +15,7 @@ class DeepSpeech2(nn.Module):
             conv_channels (int): number of channels in 2d conv layers (same for all layers).
             num_rnn_layers (int): number of RNN layers.
             rnn_hidden_dim (int): hidden RNN dimension (same for all layers).
-            linear_layer_size (int): dimension.
+            bidirectional_rnn (bool): whether RNN layers are bidirectional.
         """
         super().__init__()
         self.num_rnn_layers = num_rnn_layers
@@ -23,10 +23,10 @@ class DeepSpeech2(nn.Module):
         self.conv_module = nn.Sequential(
             nn.Conv2d(1, conv_channels, kernel_size=(41, 11), stride=(2, 2), padding=(20, 5), bias=False),
             nn.BatchNorm2d(conv_channels),
-            nn.Hardtanh(),
+            nn.SiLU(),
             nn.Conv2d(conv_channels, conv_channels, kernel_size=(21, 11), stride=(2, 1), padding=(10, 5), bias=False),
             nn.BatchNorm2d(conv_channels),
-            nn.Hardtanh(),
+            nn.SiLU(),
         )
 
         conv_output_shape = self._get_conv_output_shape(self.conv_module, fr_shape=n_feats)
@@ -90,7 +90,7 @@ class DeepSpeech2(nn.Module):
             output_lengths (Tensor): new temporal lengths
         """
         output_lengths = torch.tensor([conv_output_length] * input_lengths.size()[0]) # Change time dimension according to convolution strides
-        return output_lengths  # we don't reduce time dimension here
+        return output_lengths
 
     def __str__(self):
         """
