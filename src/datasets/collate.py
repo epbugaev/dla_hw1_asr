@@ -16,10 +16,13 @@ def collate_fn(dataset_items: list[dict]):
 
     # DONE
     result_batch = {}
-    result_batch['text'] = [item['text'] for item in dataset_items]
-    result_batch['audio_path'] = [item['audio_path'] for item in dataset_items]
+    copy_keys = ['text', 'audio_path']
 
-    for k in ['audio', 'text_encoded', 'spectrogram']:
+    for copy_key in copy_keys:
+        result_batch[copy_key] = [item[copy_key] for item in dataset_items]
+
+    tensor_keys = ['audio', 'text_encoded', 'spectrogram', 'original_audio', 'original_spectrogram']
+    for k in tensor_keys:
         last_dim_mx = max([item[k].shape[-1] for item in dataset_items])
 
         # Pad all tensors so last dimension sizes match

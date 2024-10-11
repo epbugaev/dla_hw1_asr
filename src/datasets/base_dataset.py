@@ -84,11 +84,9 @@ class BaseDataset(Dataset):
         text = data_dict["text"]
         text_encoded = self.text_encoder.encode(text)
 
-        spectrogram = self.get_spectrogram(audio)
-
         instance_data = {
+            "original_audio": audio,
             "audio": audio,
-            "spectrogram": spectrogram,
             "text": text,
             "text_encoded": text_encoded,
             "audio_path": audio_path,
@@ -97,8 +95,12 @@ class BaseDataset(Dataset):
         # TODO think of how to apply wave augs before calculating spectrogram
         # Note: you may want to preserve both audio in time domain and
         # in time-frequency domain for logging
-        instance_data = self.preprocess_data(instance_data)
+        instance_data = self.preprocess_data(instance_data, before_spectrogram=True)
+        spectrogram = self.get_spectrogram(audio)
+        instance_data["original_spectrogram"] = spectrogram
+        instance_data["spectrogram"] = spectrogram
 
+        instance_data = self.preprocess_data(instance_data, before_spectrogram=False)
         return instance_data
 
     def __len__(self):
@@ -127,7 +129,7 @@ class BaseDataset(Dataset):
         """
         return self.instance_transforms["get_spectrogram"](audio)
 
-    def preprocess_data(self, instance_data):
+    def preprocess_data(self, instance_data, before_spectrogram=True):
         """
         Preprocess data with instance transforms.
 
@@ -145,6 +147,11 @@ class BaseDataset(Dataset):
             for transform_name in self.instance_transforms.keys():
                 if transform_name == "get_spectrogram":
                     continue  # skip special key
+                elif transform_name == 'audio' and before_spectrogram == False: 
+                    continue # already used these augmentations
+                elif transform_name == 'spectrogram' and before_spectrogram == True:
+                    continue # haven't applied audio augmentations yet, so it's too early to apply others
+
                 instance_data[transform_name] = self.instance_transforms[
                     transform_name
                 ](instance_data[transform_name])

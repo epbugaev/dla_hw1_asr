@@ -64,7 +64,10 @@ class BaseTrainer:
 
         self.device = device
         self.skip_oom = skip_oom
-
+        self.sample_rate = None
+        if config.trainer.get("sample_rate") is not None:
+            self.sample_rate = config.trainer.get("sample_rate")
+        
         self.logger = logger
         self.log_step = config.trainer.get("log_step", 50)
 
@@ -547,7 +550,7 @@ class BaseTrainer:
         if hasattr(self, "logger"):  # to support both trainer and inferencer
             self.logger.info(f"Loading model weights from: {pretrained_path} ...")
         else:
-            print(f"Loading model weights from: {pretrained_path} ...")
+            (f"Loading model weights from: {pretrained_path} ...")
         checkpoint = torch.load(pretrained_path, self.device)
 
         if checkpoint.get("state_dict") is not None:
