@@ -7,7 +7,7 @@ class DeepSpeech2(nn.Module):
     DeepSpeech2 model
     """
 
-    def __init__(self, n_feats, n_tokens, conv_channels=32, num_rnn_layers=3, rnn_hidden_dim=512, linear_layer_size=512):
+    def __init__(self, n_feats, n_tokens, conv_channels=32, num_rnn_layers=3, rnn_hidden_dim=512, bidirectional_rnn=True):
         """
         Args:
             n_feats (int): number of input features.
@@ -33,21 +33,22 @@ class DeepSpeech2(nn.Module):
         rnn_input_dim = conv_output_shape[1] * conv_output_shape[3] # Layers * hidden_dim
 
         self.rnn_module = nn.ModuleList()
+        rnn_output_dim = rnn_hidden_dim if not bidirectional_rnn else 2 * rnn_hidden_dim
         for i in range(num_rnn_layers):
             self.rnn_module.append(
                 nn.GRU(
-                    input_size=rnn_input_dim if i == 0 else rnn_hidden_dim,
+                    input_size=rnn_input_dim if i == 0 else rnn_output_dim,
                     hidden_size=rnn_hidden_dim,
-                    bidirectional=False,
+                    bidirectional=bidirectional_rnn,
                     dropout=0.1,
                     batch_first=True
                 )
             )
-            self.rnn_module.append(nn.BatchNorm1d(rnn_hidden_dim))
+            self.rnn_module.append(nn.BatchNorm1d(rnn_output_dim))
 
         self.fc_head = nn.Sequential(
-            nn.LayerNorm(rnn_hidden_dim),
-            nn.Linear(rnn_hidden_dim, n_tokens),
+            nn.LayerNorm(rnn_output_dim),
+            nn.Linear(rnn_output_dim, n_tokens),
         )        
 
     def forward(self, spectrogram, spectrogram_length, **batch):
@@ -61,7 +62,8 @@ class DeepSpeech2(nn.Module):
             output (dict): output dict containing log_probs and
                 transformed lengths.
         """
-        output = self.conv_module(spectrogram.transpose(1, 2).unsqueeze(1)) # Now: (batch, layer, time, n_feats)
+        log_spectrogram = torch.log(spectrogram + 1e-12)
+        output = self.conv_module(log_spectrogram.transpose(1, 2).unsqueeze(1)) # Now: (batch, layer, time, n_feats)
         batch_size, layers_cnt, seq_length, feats_dim = output.size()
         output = output.permute(0, 2, 1, 3).reshape(batch_size, seq_length, -1)
         
