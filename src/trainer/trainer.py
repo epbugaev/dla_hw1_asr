@@ -7,6 +7,7 @@ from src.metrics.tracker import MetricTracker
 from src.metrics.utils import calc_cer, calc_wer
 from src.trainer.base_trainer import BaseTrainer
 
+import torch
 
 class Trainer(BaseTrainer):
     """
@@ -81,13 +82,26 @@ class Trainer(BaseTrainer):
             self.log_spectrogram(**batch)
         else:
             # Log Stuff
+            self.log_audio(**batch)
             self.log_spectrogram(**batch)
             self.log_predictions(**batch)
 
-    def log_spectrogram(self, spectrogram, **batch):
+    def log_audio(self, audio, original_audio, **batch): 
+        self.writer.add_audio('original_audio', original_audio, self.sample_rate)
+        self.writer.add_audio('audio', audio, self.sample_rate)
+
+    def log_spectrogram(self, spectrogram, original_spectrogram, **batch):
+        spectrogram = torch.log(spectrogram + 1e-12)
+        original_spectrogram = torch.log(original_spectrogram + 1e-12)
+
         spectrogram_for_plot = spectrogram[0].detach().cpu()
         image = plot_spectrogram(spectrogram_for_plot)
-        self.writer.add_image("spectrogram", image)
+        self.writer.add_image("log spectrogram", image)
+
+        original_spectrogram_for_plot = original_spectrogram[0].detach().cpu()
+
+        original_image = plot_spectrogram(original_spectrogram_for_plot)
+        self.writer.add_image("original log spectrogram", original_image)
 
     def log_predictions(
         self, text, log_probs, log_probs_length, audio_path, examples_to_log=10, **batch
