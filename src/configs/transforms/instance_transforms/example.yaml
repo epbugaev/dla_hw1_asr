@@ -3,7 +3,6 @@ train:
     _target_: torchaudio.transforms.MelSpectrogram
     sample_rate: 16000
     normalized: True
-  audio: None
 inference:
   get_spectrogram:
     _target_: torchaudio.transforms.MelSpectrogram
