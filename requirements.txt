@@ -11,7 +11,10 @@ datasets
 wget
 pandas
 wandb
+flashlight-text
+KenLM
 comet_ml
+sentencepiece
 hydra-core
 
 black
