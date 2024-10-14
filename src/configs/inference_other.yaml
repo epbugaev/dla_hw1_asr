@@ -1,7 +1,7 @@
 defaults:
   - model: deepspeech
   - metrics: inference
-  - datasets: eval_clean # we do not want to run inference on training data
+  - datasets: eval_other # we do not want to run inference on training data
   - dataloader: example
   - transforms: clean
   - _self_

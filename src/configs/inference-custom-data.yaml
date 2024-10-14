@@ -2,8 +2,8 @@ defaults:
   - model: deepspeech
   - metrics: inference
   - datasets: eval_custom # we do not want to run inference on training data
-  - dataloader: custom_data_loader
-  - transforms: example_only_instance
+  - dataloader: custom_data_loader # reqiures dataloader to be with no subprocesses
+  - transforms: clean
   - _self_
 text_encoder:
   _target_: src.text_encoder.CTCTextEncoder

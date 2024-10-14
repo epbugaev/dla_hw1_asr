@@ -21,7 +21,7 @@ train:
       - _target_: src.transforms.wav_augs.PitchShift
         sample_rate: ${transforms.instance_transforms.train.get_spectrogram.sample_rate}
         p: 0.15
-      
+
 inference:
   get_spectrogram:
     _target_: torchaudio.transforms.MelSpectrogram
