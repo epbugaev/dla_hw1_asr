@@ -7,7 +7,15 @@ class DeepSpeech2(nn.Module):
     DeepSpeech2 model
     """
 
-    def __init__(self, n_feats, n_tokens, conv_channels=32, num_rnn_layers=3, rnn_hidden_dim=512, bidirectional_rnn=True):
+    def __init__(
+        self,
+        n_feats,
+        n_tokens,
+        conv_channels=32,
+        num_rnn_layers=3,
+        rnn_hidden_dim=512,
+        bidirectional_rnn=True,
+    ):
         """
         Args:
             n_feats (int): number of input features.
@@ -21,16 +29,34 @@ class DeepSpeech2(nn.Module):
         self.num_rnn_layers = num_rnn_layers
 
         self.conv_module = nn.Sequential(
-            nn.Conv2d(1, conv_channels, kernel_size=(41, 11), stride=(2, 2), padding=(20, 5), bias=False),
+            nn.Conv2d(
+                1,
+                conv_channels,
+                kernel_size=(41, 11),
+                stride=(2, 2),
+                padding=(20, 5),
+                bias=False,
+            ),
             nn.BatchNorm2d(conv_channels),
             nn.SiLU(),
-            nn.Conv2d(conv_channels, conv_channels, kernel_size=(21, 11), stride=(2, 1), padding=(10, 5), bias=False),
+            nn.Conv2d(
+                conv_channels,
+                conv_channels,
+                kernel_size=(21, 11),
+                stride=(2, 1),
+                padding=(10, 5),
+                bias=False,
+            ),
             nn.BatchNorm2d(conv_channels),
             nn.SiLU(),
         )
 
-        conv_output_shape = self._get_conv_output_shape(self.conv_module, fr_shape=n_feats)
-        rnn_input_dim = conv_output_shape[1] * conv_output_shape[3] # Layers * hidden_dim
+        conv_output_shape = self._get_conv_output_shape(
+            self.conv_module, fr_shape=n_feats
+        )
+        rnn_input_dim = (
+            conv_output_shape[1] * conv_output_shape[3]
+        )  # Layers * hidden_dim
 
         self.rnn_module = nn.ModuleList()
         rnn_output_dim = rnn_hidden_dim if not bidirectional_rnn else 2 * rnn_hidden_dim
@@ -41,7 +67,7 @@ class DeepSpeech2(nn.Module):
                     hidden_size=rnn_hidden_dim,
                     bidirectional=bidirectional_rnn,
                     dropout=0.1,
-                    batch_first=True
+                    batch_first=True,
                 )
             )
             self.rnn_module.append(nn.BatchNorm1d(rnn_output_dim))
@@ -49,7 +75,7 @@ class DeepSpeech2(nn.Module):
         self.fc_head = nn.Sequential(
             nn.LayerNorm(rnn_output_dim),
             nn.Linear(rnn_output_dim, n_tokens),
-        )        
+        )
 
     def forward(self, spectrogram, spectrogram_length, **batch):
         """
@@ -63,13 +89,17 @@ class DeepSpeech2(nn.Module):
                 transformed lengths.
         """
         log_spectrogram = torch.log(spectrogram + 1e-12)
-        output = self.conv_module(log_spectrogram.transpose(1, 2).unsqueeze(1)) # Now: (batch, layer, time, n_feats)
+        output = self.conv_module(
+            log_spectrogram.transpose(1, 2).unsqueeze(1)
+        )  # Now: (batch, layer, time, n_feats)
         batch_size, layers_cnt, seq_length, feats_dim = output.size()
         output = output.permute(0, 2, 1, 3).reshape(batch_size, seq_length, -1)
-        
+
         for i in range(self.num_rnn_layers):
             output, _ = self.rnn_module[2 * i](output)
-            output = self.rnn_module[2 * i + 1](output.permute(0, 2, 1)).permute(0, 2, 1) # BatchNorm1d accepts order (batch, n_feats, seq_len)
+            output = self.rnn_module[2 * i + 1](output.permute(0, 2, 1)).permute(
+                0, 2, 1
+            )  # BatchNorm1d accepts order (batch, n_feats, seq_len)
 
         output = self.fc_head(output)
 
@@ -89,7 +119,9 @@ class DeepSpeech2(nn.Module):
         Returns:
             output_lengths (Tensor): new temporal lengths
         """
-        output_lengths = torch.tensor([conv_output_length] * input_lengths.size()[0]) # Change time dimension according to convolution strides
+        output_lengths = torch.tensor(
+            [conv_output_length] * input_lengths.size()[0]
+        )  # Change time dimension according to convolution strides
         return output_lengths
 
     def __str__(self):
@@ -106,19 +138,22 @@ class DeepSpeech2(nn.Module):
         result_info = result_info + f"\nTrainable parameters: {trainable_parameters}"
 
         return result_info
-    
+
     @staticmethod
     def _get_conv_output_shape(conv_module, seq_len=100, fr_shape=100):
         """
         Simulates applying 2d Conv layers to get output sizes.
-        
+
         Args:
+            conv_module (nn.Module): convolution PyTorch module
             seq_len (int): input length for this tensor
             fr_shape (int): n_feats for this tensor (connected with frequencies)
         Returns:
             output_shape (Tuple): shape of 2d Conv layers output
         """
-        inp = torch.tensor([1.0] * seq_len * fr_shape).view(1, 1, seq_len, fr_shape) # Now: batch, layer, time, n_feats
+        inp = torch.tensor([1.0] * seq_len * fr_shape).view(
+            1, 1, seq_len, fr_shape
+        )  # Now: batch, layer, time, n_feats
         output = conv_module(inp)
-        
+
         return output.shape

@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import torchaudio
+
 from src.datasets.base_dataset import BaseDataset
 
 
@@ -12,7 +14,7 @@ class CustomDirAudioDataset(BaseDataset):
                 entry["path"] = str(path)
                 t_info = torchaudio.info(str(path))
                 length = t_info.num_frames / t_info.sample_rate
-                entry['audio_len'] = length
+                entry["audio_len"] = length
 
                 if transcription_dir and Path(transcription_dir).exists():
                     transc_path = Path(transcription_dir) / (path.stem + ".txt")

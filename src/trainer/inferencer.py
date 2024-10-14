@@ -1,9 +1,11 @@
+import json
+
 import torch
 from tqdm.auto import tqdm
 
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
-import json
+
 
 class Inferencer(BaseTrainer):
     """
@@ -49,7 +51,7 @@ class Inferencer(BaseTrainer):
                 pre-trained checkpoint path. Set this argument to True if
                 the model desirable weights are defined outside of the
                 Inferencer Class.
-            use_beam_search (bool): use beam seach for inference 
+            use_beam_search (bool): use beam seach for inference
                 If LM is enabled in text encoder, premade beam search
                 is used.
         """
@@ -139,38 +141,43 @@ class Inferencer(BaseTrainer):
             for met in self.metrics["inference"]:
                 metrics.update(met.name, met(**batch))
 
-        log_probs = batch['log_probs'].clone()
+        log_probs = batch["log_probs"].clone()
         predictions = torch.argmax(log_probs.cpu(), dim=-1).numpy()
         if self.use_beam_search and self.text_encoder.do_lm_decoding:
             predictions = self.text_encoder.lm_decoder(log_probs)
 
         lengths = batch["log_probs_length"].clone().detach().numpy()
         text = batch["text"]
-        for prediction, log_probs_matrix, length, target_text, audio_path in zip(predictions, log_probs, lengths, text, batch['audio_path']):
+        for prediction, log_probs_matrix, length, target_text, audio_path in zip(
+            predictions, log_probs, lengths, text, batch["audio_path"]
+        ):
             target_text = self.text_encoder.normalize_text(target_text)
-            
+
             if self.use_beam_search and self.text_encoder.do_lm_decoding:
                 pred_text = " ".join(prediction[0].words)
             elif self.use_beam_search:
-                pred_text = self.text_encoder.get_best_pred_with_beam_search(log_probs_matrix[:length, :], self.beam_size)
+                pred_text = self.text_encoder.get_best_pred_with_beam_search(
+                    log_probs_matrix[:length, :], self.beam_size
+                )
             else:
                 pred_text = self.text_encoder.ctc_decode(prediction[:length])
 
             output = {
                 "predicted_text": pred_text,
                 "actual_text": text[-1],
-                "audio_path": audio_path, 
+                "audio_path": audio_path,
             }
 
-            print('here:', pred_text, 'true:', text)
             if self.save_path is not None:
                 # you can use safetensors or other lib here
-                last_audio_part = audio_path.split('/')[-1]
-                
-                with open(str(self.save_path / part / ("output_" + last_audio_part + ".pth")), 'w') as f:
+                last_audio_part = audio_path.split("/")[-1]
+
+                with open(
+                    str(self.save_path / part / ("output_" + last_audio_part + ".pth")),
+                    "w",
+                ) as f:
                     json.dump(output, f)
-                
-                #torch.save(output, self.save_path / part / ("output_" + last_audio_part + ".pth"))
+
         return batch
 
     def _inference_part(self, part, dataloader):

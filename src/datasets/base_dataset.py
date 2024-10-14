@@ -2,7 +2,6 @@ import logging
 import random
 
 import numpy as np
-import torch
 import torchaudio
 from torch.utils.data import Dataset
 
@@ -147,10 +146,10 @@ class BaseDataset(Dataset):
             for transform_name in self.instance_transforms.keys():
                 if transform_name == "get_spectrogram":
                     continue  # skip special key
-                elif transform_name == 'audio' and before_spectrogram == False: 
-                    continue # already used these augmentations
-                elif transform_name == 'spectrogram' and before_spectrogram == True:
-                    continue # haven't applied audio augmentations yet, so it's too early to apply others
+                elif transform_name == "audio" and before_spectrogram is False:
+                    continue  # already used these augmentations
+                elif transform_name == "spectrogram" and before_spectrogram is True:
+                    continue  # haven't applied audio augmentations yet, so it's too early to apply others
 
                 instance_data[transform_name] = self.instance_transforms[
                     transform_name

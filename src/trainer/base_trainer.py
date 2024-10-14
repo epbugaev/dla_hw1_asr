@@ -67,7 +67,7 @@ class BaseTrainer:
         self.sample_rate = None
         if config.trainer.get("sample_rate") is not None:
             self.sample_rate = config.trainer.get("sample_rate")
-        
+
         self.logger = logger
         self.log_step = config.trainer.get("log_step", 50)
 

@@ -1,17 +1,27 @@
-from torchaudio.models.decoder import ctc_decoder, download_pretrained_files # for lm decoding
-from string import ascii_lowercase
-from collections import defaultdict 
-import torch
-import sentencepiece as spm
 import re
+from collections import defaultdict
+from string import ascii_lowercase
+
 import numpy as np
-import codecs
+import sentencepiece as spm
+import torch
+from torchaudio.models.decoder import (  # for lm decoding
+    ctc_decoder,
+    download_pretrained_files,
+)
 
 
 class CTCTextEncoder:
     EMPTY_TOK = ""
 
-    def __init__(self, alphabet=None, lm_decoding=False, use_bpe_tokenizer=False, bpe_model_path=None, **kwargs):
+    def __init__(
+        self,
+        alphabet=None,
+        lm_decoding=False,
+        use_bpe_tokenizer=False,
+        bpe_model_path=None,
+        **kwargs,
+    ):
         """
         Args:
             alphabet (list): alphabet for language. If None, it will be
@@ -30,9 +40,9 @@ class CTCTextEncoder:
         self.vocab = [self.EMPTY_TOK] + list(self.alphabet)
 
         # Use pretrained set of tokens for bpe tokenizer
-        if self.use_bpe_tokenizer: 
+        if self.use_bpe_tokenizer:
             self._add_bpe_tokens(bpe_model_path)
-        
+
         self.mx_token_len = max([len(item) for item in self.vocab])
 
         self.ind2char = dict(enumerate(self.vocab))
@@ -56,12 +66,14 @@ class CTCTextEncoder:
                 res_list = []
                 ind = 0
                 while ind < len(text):
-                    for substr_len in range(min(len(text) - ind, self.mx_token_len), 0, -1):
+                    for substr_len in range(
+                        min(len(text) - ind, self.mx_token_len), 0, -1
+                    ):
                         if text[ind:ind + substr_len] in self.char2ind:
                             res_list.append(self.char2ind[text[ind:ind + substr_len]])
                             ind += substr_len
                             break
-                    
+
                 return torch.Tensor(res_list).unsqueeze(0)
 
             return torch.Tensor([self.char2ind[char] for char in text]).unsqueeze(0)
@@ -86,12 +98,12 @@ class CTCTextEncoder:
     def ctc_decode(self, inds) -> str:
         decoded = []
         last_ind = -1
-        for ind in inds: 
+        for ind in inds:
             if ind == last_ind:
                 continue
 
             last_ind = ind
-            if ind == 0: 
+            if ind == 0:
                 continue
             decoded.append(self.ind2char[ind])
 
@@ -102,18 +114,18 @@ class CTCTextEncoder:
         for char_ind, next_token_prob in enumerate(log_probs):
             char = self.vocab[char_ind]
             for (prefix, last_char), cur_prob in dp:
-                if last_char == char: 
+                if last_char == char:
                     new_prefix = prefix
                 else:
-                    if char != self.EMPTY_TOK: 
+                    if char != self.EMPTY_TOK:
                         new_prefix = prefix + char
-                    else: 
+                    else:
                         new_prefix = prefix
 
                 next_dp[(new_prefix, char)] += cur_prob * np.exp(next_token_prob)
         return next_dp
 
-    def _truncate_paths(self, dp, beam_size): 
+    def _truncate_paths(self, dp, beam_size):
         """
         Leave only beam size most probable paths.
 
@@ -122,11 +134,11 @@ class CTCTextEncoder:
         Returns:
             dp (defaultdict): dict with (prefix, last_ind) -> probability with exactly beam_size keys
         """
-        return sorted(list(dp.items()), key=lambda x: -x[1])[:beam_size] 
-    
+        return sorted(list(dp.items()), key=lambda x: -x[1])[:beam_size]
+
     def get_best_pred_with_beam_search(self, log_probs, beam_size):
         """
-        Get single best prediction with CTC beam search. 
+        Get single best prediction with CTC beam search.
 
         Args:
             log_probs (torch.tensor): 2D torch tensor of shape (seq_len, n_tokens)
@@ -134,9 +146,7 @@ class CTCTextEncoder:
         Returns:
             best_prefix (str): decoded best prediction
         """
-        dp = [
-            [('', self.EMPTY_TOK), 1.0]
-        ]
+        dp = [[("", self.EMPTY_TOK), 1.0]]
 
         for log_prob_row in log_probs:
             dp = self._expand_and_merge_path(dp, log_prob_row)
@@ -144,8 +154,8 @@ class CTCTextEncoder:
 
         (best_prefix, _), _ = sorted(dp, key=lambda x: -x[1])[0]
         return best_prefix
-    
-    def _add_bpe_tokens(self, bpe_model_path: str): 
+
+    def _add_bpe_tokens(self, bpe_model_path: str):
         """
         Add bpe tokens to model vocabulary. Use SentecePieceProcessor for getting tokens.
 
@@ -158,36 +168,40 @@ class CTCTextEncoder:
         additional_vocab = [self.sp.id_to_piece(i) for i in range(self.sp.vocab_size())]
         additional_vocab = additional_vocab
         for item in additional_vocab:
-            if '<' in item or '>' in item: # Exclude sentencepiece special symbols
+            if "<" in item or ">" in item:  # Exclude sentencepiece special symbols
                 continue
-            correct_item = item.replace('▁', '').lower() # Exclude sentencepiece specific separators
+            correct_item = item.replace(
+                "▁", ""
+            ).lower()  # Exclude sentencepiece specific separators
             if correct_item not in self.vocab:
                 self.vocab.append(correct_item)
 
         self.vocab = [self.EMPTY_TOK] + self.vocab
 
-    def _init_lm_decoder(self): 
+    def _init_lm_decoder(self):
         """
         Download LM params and make LM and our vocabulary and tokens compatible
         """
         files = download_pretrained_files("librispeech-4-gram")
-        
+
         txt = None
-        with open(files.lexicon, 'r') as f:
+        with open(files.lexicon, "r") as f:
             txt = f.read()
-        with open(files.lexicon, 'w') as f:
-            f.write(txt.replace("'", "")) # We do not predict ' in our model
-        
-        self.vocab = [item if item != ' ' else '|' for item in self.vocab] # LM cannot work with silence token being space
+        with open(files.lexicon, "w") as f:
+            f.write(txt.replace("'", ""))  # We do not predict ' in our model
+
+        self.vocab = [
+            item if item != " " else "|" for item in self.vocab
+        ]  # LM cannot work with silence token being space
 
         self.lm_decoder = ctc_decoder(
             lexicon=files.lexicon,
             tokens=self.vocab,
             lm=files.lm,
             nbest=1,
-            blank_token='', 
-            sil_token='|', 
-            )
+            blank_token="",
+            sil_token="|",
+        )
 
     @staticmethod
     def normalize_text(text: str):

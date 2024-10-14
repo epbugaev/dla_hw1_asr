@@ -1,13 +1,13 @@
 from pathlib import Path
 
 import pandas as pd
+import torch
 
 from src.logger.utils import plot_spectrogram
 from src.metrics.tracker import MetricTracker
 from src.metrics.utils import calc_cer, calc_wer
 from src.trainer.base_trainer import BaseTrainer
 
-import torch
 
 class Trainer(BaseTrainer):
     """
@@ -86,9 +86,9 @@ class Trainer(BaseTrainer):
             self.log_spectrogram(**batch)
             self.log_predictions(**batch)
 
-    def log_audio(self, audio, original_audio, **batch): 
-        self.writer.add_audio('original_audio', original_audio, self.sample_rate)
-        self.writer.add_audio('audio', audio, self.sample_rate)
+    def log_audio(self, audio, original_audio, **batch):
+        self.writer.add_audio("original_audio", original_audio, self.sample_rate)
+        self.writer.add_audio("audio", audio, self.sample_rate)
 
     def log_spectrogram(self, spectrogram, original_spectrogram, **batch):
         spectrogram = torch.log(spectrogram + 1e-12)
