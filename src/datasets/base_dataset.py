@@ -80,16 +80,19 @@ class BaseDataset(Dataset):
         data_dict = self._index[ind]
         audio_path = data_dict["path"]
         audio = self.load_audio(audio_path)
-        text = data_dict["text"]
-        text_encoded = self.text_encoder.encode(text)
 
         instance_data = {
             "original_audio": audio,
             "audio": audio,
-            "text": text,
-            "text_encoded": text_encoded,
             "audio_path": audio_path,
         }
+
+        if "text" in data_dict:
+            text = data_dict["text"]
+            text_encoded = self.text_encoder.encode(text)
+
+            instance_data["text"] = text
+            instance_data["text_encoded"] = text_encoded
 
         # TODO think of how to apply wave augs before calculating spectrogram
         # Note: you may want to preserve both audio in time domain and
@@ -231,10 +234,6 @@ class BaseDataset(Dataset):
         for entry in index:
             assert "path" in entry, (
                 "Each dataset item should include field 'path'" " - path to audio file."
-            )
-            assert "text" in entry, (
-                "Each dataset item should include field 'text'"
-                " - object ground-truth transcription."
             )
             assert "audio_len" in entry, (
                 "Each dataset item should include field 'audio_len'"

@@ -17,18 +17,24 @@ def collate_fn(dataset_items: list[dict]):
 
     # DONE
     result_batch = {}
-    copy_keys = ["text", "audio_path"]
+    copy_keys = ["audio_path"]
+
+    if "text" in dataset_items[0]:
+        copy_keys.append("text")
 
     for copy_key in copy_keys:
         result_batch[copy_key] = [item[copy_key] for item in dataset_items]
 
     tensor_keys = [
         "audio",
-        "text_encoded",
         "spectrogram",
         "original_audio",
         "original_spectrogram",
     ]
+
+    if "text_encoded" in dataset_items[0]:
+        tensor_keys.append("text_encoded")
+
     for k in tensor_keys:
         last_dim_mx = max([item[k].shape[-1] for item in dataset_items])
 

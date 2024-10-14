@@ -137,7 +137,7 @@ class Inferencer(BaseTrainer):
         outputs = self.model(**batch)
         batch.update(outputs)
 
-        if metrics is not None:
+        if metrics is not None and 'text_encoded' in batch:
             for met in self.metrics["inference"]:
                 metrics.update(met.name, met(**batch))
 
@@ -147,12 +147,15 @@ class Inferencer(BaseTrainer):
             predictions = self.text_encoder.lm_decoder(log_probs)
 
         lengths = batch["log_probs_length"].clone().detach().numpy()
-        text = batch["text"]
+
+        if "text" in batch:
+            text = batch["text"]
+        else:
+            text = [None] * len(batch)
+
         for prediction, log_probs_matrix, length, target_text, audio_path in zip(
             predictions, log_probs, lengths, text, batch["audio_path"]
         ):
-            target_text = self.text_encoder.normalize_text(target_text)
-
             if self.use_beam_search and self.text_encoder.do_lm_decoding:
                 pred_text = " ".join(prediction[0].words)
             elif self.use_beam_search:
@@ -162,11 +165,17 @@ class Inferencer(BaseTrainer):
             else:
                 pred_text = self.text_encoder.ctc_decode(prediction[:length])
 
-            output = {
-                "predicted_text": pred_text,
-                "actual_text": text[-1],
-                "audio_path": audio_path,
-            }
+            if "text" in batch:
+                output = {
+                    "predicted_text": pred_text,
+                    "actual_text": target_text[-1],
+                    "audio_path": audio_path,
+                }
+            else:
+                output = {
+                    "predicted_text": pred_text,
+                    "audio_path": audio_path,
+                }
 
             if self.save_path is not None:
                 # you can use safetensors or other lib here
